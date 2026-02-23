@@ -1,6 +1,6 @@
 {
   "scripts": {
-    "dev": "vite --port 5173"
+    "dev": "npm run dev --prefix uipath-typescript/samples/process-app"
   },
   "devDependencies": {
     "vite": "^7.3.0"
