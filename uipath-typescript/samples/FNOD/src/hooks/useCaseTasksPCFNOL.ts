@@ -15,6 +15,8 @@ export interface AppTask {
   createdTime?: string;
   lastAssignedTime?: string;
   title?: string;
+  name?: string;
+  displayName?: string;
   description?: string;
   folderId?: string | number;
 }

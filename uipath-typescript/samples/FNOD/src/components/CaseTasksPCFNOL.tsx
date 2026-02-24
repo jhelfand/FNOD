@@ -3,7 +3,7 @@
  * Mirrors ReviewDecisionStrip's task selection UI from template-processapp---PC_claims_workbench.
  */
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useCaseTasksPCFNOL, type AppTask } from '../hooks/useCaseTasksPCFNOL';
 import { useAuth } from '../hooks/useAuth';
 import { useCase } from '../contexts/CaseContext';
@@ -13,7 +13,7 @@ import Modal from './ui/modal';
 export function CaseTasksPCFNOL() {
   const { sdk } = useAuth();
   const { selectedCaseInstanceId, currentCase } = useCase();
-  const { tasks: pendingTasks = [], isLoading, refresh } = useCaseTasksPCFNOL(
+  const { tasks: pendingTasks = [], isLoading } = useCaseTasksPCFNOL(
     selectedCaseInstanceId ?? undefined,
     sdk,
     currentCase?.id

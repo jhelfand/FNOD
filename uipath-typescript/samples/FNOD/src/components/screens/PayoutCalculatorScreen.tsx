@@ -7,22 +7,7 @@ import Modal from '../ui/modal';
 import { useToast } from '../../hooks/use-toast';
 import { useAuth } from '../../hooks/useAuth';
 import mergeBeneficiaries from '../../utils/beneficiary-normalize';
-import { getDfFieldString } from '../../utils/data-fabric';
-
-// Small inline icons used for action buttons (keeps no external icon dependency)
-const IconCheck = ({ className = '' }: { className?: string }) => (
-  <svg className={className} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
-    <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="1.2" />
-    <path d="M9 12.5l2 2 4-5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-  </svg>
-);
-
-const IconPlane = ({ className = '' }: { className?: string }) => (
-  <svg className={className} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
-    <path d="M22 2L11 13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-    <path d="M22 2l-7 20  -3-8-8-3 20-9z" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" fill="currentColor" fillOpacity="0.06" />
-  </svg>
-);
+import { getDfFieldString, updateSingleDfRecord } from '../../utils/data-fabric';
 
 // Minimal local types to match expected data shape
 type Beneficiary = { id: string; name: string; relationship?: string; paymentMethod?: string; percentage?: number; dob?: string; address?: string };
@@ -137,6 +122,7 @@ export default function PayoutCalculatorScreen({ onNavigate }: PayoutCalculatorS
 
   const loadPayoutData = async () => {
     if (!selectedPolicy && !selectedDfRecord) return;
+    if (!selectedPolicy) return;
     setIsLoading(true);
     try {
       const [summary, bens] = await Promise.all([
@@ -174,7 +160,7 @@ export default function PayoutCalculatorScreen({ onNavigate }: PayoutCalculatorS
       };
 
       // Use DF beneficiary data if available
-      const resolvedBens = (bens && bens.length > 0) ? bens : [
+      const resolvedBens: Beneficiary[] = (Array.isArray(bens) && bens.length > 0) ? (bens as Beneficiary[]) : [
         { id: 'ben-1', name: 'Anna J Anderson', relationship: 'Child', paymentMethod: 'ACH', percentage: 50, dob: '1976-08-08', address: '1354 Smith Street NW, Eagle, NM 46661' },
         { id: 'ben-2', name: 'Nicole V Anderson', relationship: 'Child', paymentMethod: 'Check', percentage: 50, dob: '1978-10-26', address: '4574 Flower Drive, Lewis, WI 45864' }
       ];
@@ -223,8 +209,8 @@ export default function PayoutCalculatorScreen({ onNavigate }: PayoutCalculatorS
       };
 
       // Build a beneficiaries array that follows the payout order and falls back to demo values
-      let mergedBeneficiaries: Beneficiary[] = resolvedSummary.beneficiaryPayouts.map(p => {
-        const found = (resolvedBens || []).find(b => String(b.id) === String(p.beneficiaryId));
+      let mergedBeneficiaries: Beneficiary[] = resolvedSummary.beneficiaryPayouts.map((p: PayoutCalculation) => {
+        const found = (resolvedBens || []).find((b: Beneficiary) => String(b.id) === String(p.beneficiaryId));
         if (found) return found;
         // fallback to demo mapping or a minimal placeholder
         return demoById[p.beneficiaryId] ?? { id: p.beneficiaryId, name: 'Unknown', percentage: 0 } as Beneficiary;
@@ -326,14 +312,20 @@ export default function PayoutCalculatorScreen({ onNavigate }: PayoutCalculatorS
       await new Promise(r => setTimeout(r, 800));
       // Update Data Fabric - use selectedDfRecord (case-linked from Case Selector) so we update the correct case.
       const entityId = import.meta.env.VITE_UIPATH_ENTITY_ID;
-      const dfRecordToUpdate = selectedDfRecord ?? ((Array.isArray(dfData) && dfData[0]) ? dfData[0] : dfData);
-      if (sdk && entityId && dfRecordToUpdate?.Id) {
+      const dfRecordToUpdate = selectedDfRecord;
+      const dfRecordId = dfRecordToUpdate?.Id ?? dfRecordToUpdate?.id;
+      if (sdk && entityId && dfRecordId) {
         try {
-          await sdk.entities.updateById(entityId, [{
-            Id: dfRecordToUpdate.Id,
-            QAReviewed: 'yes',
-            CurrentState: 'QA Complete',
-          }]);
+          await updateSingleDfRecord(
+            sdk as any,
+            entityId,
+            String(dfRecordId),
+            {
+              Id: dfRecordId,
+              QAReviewed: 'yes',
+              CurrentState: 'QA Complete',
+            }
+          );
           await refreshDfRecords();
         } catch (dfError) {
           console.error('[PayoutCalculatorScreen] Failed to update Data Fabric:', dfError);

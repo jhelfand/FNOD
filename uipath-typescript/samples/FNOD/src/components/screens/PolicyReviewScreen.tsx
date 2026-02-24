@@ -3,7 +3,7 @@ import { useCase } from '../../contexts/CaseContext';
 import { useUiPathSdk } from '../../hooks/useUiPathSdk';
 import { useToast } from '../../hooks/use-toast';
 import { useAuth } from '../../hooks/useAuth';
-import { getDfFieldString } from '../../utils/data-fabric';
+import { getDfFieldString, updateSingleDfRecord } from '../../utils/data-fabric';
 
 type EligibilityDecision = 'Eligible' | 'Conditionally Eligible' | 'Not Eligible';
 
@@ -156,16 +156,22 @@ export const PolicyReviewScreen: React.FC<PolicyReviewScreenProps> = ({ onNaviga
 
     // Update Data Fabric - use selectedDfRecord (case-linked from Case Selector) so we update the correct case.
     // dfData is policy-number-based and can return a different record (e.g. beneficiary row) when multiple records share the same policy.
-    const dfRecordToUpdate = selectedDfRecord || dfData;
+    const dfRecordToUpdate = selectedDfRecord;
     const recordId = dfRecordToUpdate?.Id ?? dfRecordToUpdate?.id;
     const entityId = import.meta.env.VITE_UIPATH_ENTITY_ID;
     if (sdk && dfRecordToUpdate && recordId && entityId) {
       const updateData = {
+        id: String(recordId),
         Id: recordId,
         EligibilityReviewed: 'yes',
       };
       console.log('[PolicyReviewScreen] Data Fabric update - entityId:', entityId, 'recordId:', recordId, 'payload:', updateData);
-      sdk.entities.updateById(entityId, [updateData])
+      updateSingleDfRecord(
+        sdk as any,
+        entityId,
+        String(recordId),
+        updateData
+      )
         .then((result) => {
           console.log('[PolicyReviewScreen] Data Fabric update success:', result);
           return refreshDfRecords();

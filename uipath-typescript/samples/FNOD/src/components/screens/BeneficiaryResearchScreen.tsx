@@ -13,11 +13,6 @@ const IconUsers = () => (
     <circle cx="12" cy="7" r="4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
   </svg>
 );
-const IconSparkles = () => (
-  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
-    <path d="M12 3l1.5 3L17 8l-3.5 1L12 12l-1.5-3L7 8l3.5-2L12 3z" stroke="currentColor" strokeWidth="0.8" strokeLinejoin="round" />
-  </svg>
-);
 const IconCheck = () => (
   <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
     <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="1" fill="none" />
@@ -33,6 +28,7 @@ const IconX = () => (
 import { useToast } from '../../hooks/use-toast';
 import { useAuth } from '../../hooks/useAuth';
 import type { Beneficiary } from '../../types';
+import { updateSingleDfRecord } from '../../utils/data-fabric';
 
 interface BeneficiaryResearchScreenProps {
   onNavigate: (tab: string) => void;
@@ -61,13 +57,19 @@ export function BeneficiaryResearchScreen({ onNavigate }: BeneficiaryResearchScr
     try {
       const entityId = import.meta.env.VITE_UIPATH_ENTITY_ID;
       const dfRecord = selectedDfRecord;
-      if (sdk && entityId && dfRecord?.Id) {
+      const dfRecordId = dfRecord?.Id ?? dfRecord?.id;
+      if (sdk && entityId && dfRecordId) {
         try {
-          await sdk.entities.updateById(entityId, [{
-            Id: dfRecord.Id,
-            BeneficiaryReviewed: 'yes',
-            CurrentState: 'Doc Validation',
-          }]);
+          await updateSingleDfRecord(
+            sdk as any,
+            entityId,
+            String(dfRecordId),
+            {
+              Id: dfRecordId,
+              BeneficiaryReviewed: 'yes',
+              CurrentState: 'Doc Validation',
+            }
+          );
           await refreshDfRecords();
         } catch (dfError) {
           console.error('[BeneficiaryResearchScreen] Failed to update Data Fabric:', dfError);

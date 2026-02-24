@@ -24,7 +24,7 @@ function trailingNumericId(value: string): string | null {
 function mapDfRecordToCase(
   dfRecord: Record<string, unknown>,
   caseId: string,
-  caseInstanceId: string
+  _caseInstanceId: string
 ): Partial<CaseModel> {
   const get = (field: DfFieldKey) => getDfField(dfRecord, field);
   const getStr = (field: DfFieldKey) => {
@@ -98,7 +98,7 @@ const PLACEHOLDER_NOTE = 'Data Fabric: field not found – update Data Fabric to
 export function useDataFabricCase(
   caseId: string | undefined,
   caseInstanceId: string | undefined,
-  sdk: { entities?: { getRecordsById?: (id: string, opts?: { pageSize?: number }) => Promise<unknown> } } | null
+  sdk: { entities?: { getRecordsById?: (id: string, opts?: { pageSize?: number; filter?: string }) => Promise<unknown> } } | null
 ): UseDataFabricCaseResult {
   const [dfRecord, setDfRecord] = useState<Record<string, unknown> | null>(null);
   const [loading, setLoading] = useState(true);
@@ -116,7 +116,8 @@ export function useDataFabricCase(
       setError('No case ID or case instance ID provided.');
       return;
     }
-    if (!ENTITY_ID || !sdk?.entities?.getRecordsById) {
+    const getRecordsById = sdk?.entities?.getRecordsById;
+    if (!ENTITY_ID || !getRecordsById) {
       setLoading(false);
       setDfRecord(null);
       setError(null);
@@ -138,14 +139,14 @@ export function useDataFabricCase(
               pageSize: 200,
               filter: `CaseInstanceId eq '${caseIdToFilter}' or CaseNumber eq '${caseIdToFilter}'`,
             };
-            const res: any = await sdk.entities.getRecordsById(ENTITY_ID, opts);
+            const res: any = await getRecordsById(ENTITY_ID, opts);
             items = Array.isArray(res) ? res : res?.items ?? res?.data ?? [];
           } catch {
             // Filter may fail if column names differ; fall back to unfiltered fetch
           }
         }
         if (items.length === 0) {
-          const res: any = await sdk.entities.getRecordsById(ENTITY_ID, { pageSize: 200 });
+          const res: any = await getRecordsById(ENTITY_ID, { pageSize: 200 });
           items = Array.isArray(res) ? res : res?.items ?? res?.data ?? [];
         }
         const caseIdTrailing = trailingNumericId(caseId ?? '') ?? caseId ?? '';

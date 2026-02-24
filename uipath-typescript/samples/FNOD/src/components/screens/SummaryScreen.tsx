@@ -49,6 +49,9 @@ export const SummaryScreen: React.FC<SummaryScreenProps> = ({ onNavigate, includ
   const [dfPolicyValue, setDfPolicyValue] = useState<number | null>(null);
   const [policiesModalOpen, setPoliciesModalOpen] = useState(false);
   const [selectedIndividual, setSelectedIndividual] = useState<{ name: string; type: 'decedent' | 'caller' } | null>(null);
+  const hasCaseLinkedDfRecord = !!(selectedDfRecord || dfRecordFromHook || caseFromDF);
+  const isLegacyGetAllRecordsError = (dfError ?? '').toLowerCase().includes('getallrecords');
+  const showDfErrorBanner = !dfLoading && !!dfError && !(hasCaseLinkedDfRecord && isLegacyGetAllRecordsError);
 
   if (!currentCase || !mergedCase) return null;
   const displayCase = mergedCase;
@@ -129,7 +132,7 @@ export const SummaryScreen: React.FC<SummaryScreenProps> = ({ onNavigate, includ
               Loading Data Fabric record for this case…
             </div>
           )}
-          {!dfLoading && dfError && (
+          {showDfErrorBanner && (
             <div className="col-span-12 bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-800">
               Data Fabric: could not load record ({dfError}). Update Data Fabric / VITE_UIPATH_ENTITY_ID to populate case data.
             </div>
@@ -407,7 +410,7 @@ export const SummaryScreen: React.FC<SummaryScreenProps> = ({ onNavigate, includ
             <div className="font-semibold mb-2">AI Assistant</div>
             <div className="h-full rounded overflow-hidden">
               <iframe
-                src="https://staging.uipath.com/uipathlabs/Playground/autopilotforeveryone_/conversational-agents/?agentId=1495241&mode=embedded&title=UiPath Life Conversation Agent&welcomeTitle=Welcome to UiPath Life Conversational Agent. I am able to help research key information for you&welcomeDescription=Talk with your agent to get started."
+                src="https://staging.uipath.com/uipathlabs/Playground/autopilotforeveryone_/conversational-agents/?agentId=1761093&mode=embedded&title=UiPath Life Conversation Agent&welcomeTitle=Welcome to UiPath Life Conversational Agent. I am able to help research key information for you&welcomeDescription=Talk with your agent to get started."
                 className="w-full h-full border-0 rounded"
                 title="UiPath Life Conversation Agent"
                 allow="microphone"

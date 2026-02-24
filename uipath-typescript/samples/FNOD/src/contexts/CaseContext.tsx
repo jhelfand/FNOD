@@ -41,6 +41,8 @@ type UseCase = {
   currentState: string | null;
   setCurrentState: (state: string) => void;
   refreshDfRecords: () => Promise<void>;
+  refreshCaseInstances: () => Promise<void>;
+  closeCaseInstance: (instanceId: string, comment?: string) => Promise<void>;
 };
 
 const CaseContext = createContext<UseCase | undefined>(undefined);
@@ -94,25 +96,26 @@ export const CaseProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Only filter by version when explicitly set; leave unset to see all cases (avoids excluding cases on other versions)
   const packageVersion = import.meta.env.VITE_UIPATH_CASE_VERSION?.trim() || undefined;
 
+  const loadCases = useCallback(async () => {
+    if (!sdk || !isAuthenticated) return;
+    try {
+      const items = await getCaseInstances(sdk, {
+        caseDefinitionId,
+        folderKey,
+        processKey,
+        ...(packageVersion && { packageVersion }),
+        pageSize: 200
+      });
+      setCaseInstances(items || []);
+    } catch (e) {
+      console.error('[CaseContext] Failed to load Case Management instances:', e);
+    }
+  }, [sdk, isAuthenticated, caseDefinitionId, folderKey, processKey, packageVersion]);
+
   // Load case instances from Case Management (primary source for case selector)
   useEffect(() => {
-    const loadCases = async () => {
-      if (!sdk || !isAuthenticated) return;
-      try {
-        const items = await getCaseInstances(sdk, {
-          caseDefinitionId,
-          folderKey,
-          processKey,
-          ...(packageVersion && { packageVersion }),
-          pageSize: 200
-        });
-        setCaseInstances(items || []);
-      } catch (e) {
-        console.error('[CaseContext] Failed to load Case Management instances:', e);
-      }
-    };
-    loadCases();
-  }, [sdk, isAuthenticated, caseDefinitionId, folderKey, processKey, packageVersion]);
+    void loadCases();
+  }, [loadCases]);
 
   const loadDfRecords = useCallback(async () => {
     const entityId = import.meta.env.VITE_UIPATH_ENTITY_ID;
@@ -218,6 +221,25 @@ export const CaseProvider: React.FC<{ children: React.ReactNode }> = ({ children
     await loadDfRecords();
   }, [loadDfRecords]);
 
+  const refreshCaseInstances = useCallback(async () => {
+    await loadCases();
+  }, [loadCases]);
+
+  const closeCaseInstance = useCallback(async (instanceId: string, comment?: string) => {
+    if (!sdk?.maestro?.cases?.instances?.close) {
+      throw new Error('Case close is not available in this SDK/session.');
+    }
+    await sdk.maestro.cases.instances.close(instanceId, folderKey, {
+      comment: comment ?? 'Closed from FNOD Case Selector',
+    });
+    if (String(selectedCaseInstanceId) === String(instanceId)) {
+      setSelectedCaseInstanceId(null);
+      setSelectedDfRecordId(null);
+      setCurrentState(null);
+    }
+    await loadCases();
+  }, [sdk, folderKey, selectedCaseInstanceId, loadCases]);
+
   return (
     <CaseContext.Provider value={{ 
       currentCase, 
@@ -241,7 +263,9 @@ export const CaseProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setPolicyStatus,
       currentState,
       setCurrentState,
-      refreshDfRecords
+      refreshDfRecords,
+      refreshCaseInstances,
+      closeCaseInstance
     }}>
       {children}
     </CaseContext.Provider>

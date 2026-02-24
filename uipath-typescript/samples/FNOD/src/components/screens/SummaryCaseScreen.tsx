@@ -1,10 +1,11 @@
-import React, { useState, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { useCase } from '../../contexts/CaseContext';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
 import { CurrentStatePill } from '../shared/CurrentStatePill';
 import { getDfFieldString } from '../../utils/data-fabric';
 import type { CaseInstanceRecord } from '../../services/caseManagement';
+import { useToast } from '../../hooks/use-toast';
 
 type StageFilter = 'in-progress' | 'completed' | 'all';
 
@@ -31,8 +32,10 @@ function findDfRecordForCase(dfRecords: any[], instanceId: string): any | null {
 }
 
 export default function SummaryCaseScreen({ onNavigate }: SummaryCaseScreenProps) {
-  const { caseInstances, selectedCaseInstance, selectCaseInstance, dfRecords } = useCase();
+  const { caseInstances, selectedCaseInstance, selectCaseInstance, dfRecords, closeCaseInstance } = useCase();
+  const { toast } = useToast();
   const [stageFilter, setStageFilter] = useState<StageFilter>('all');
+  const [closingCaseId, setClosingCaseId] = useState<string | null>(null);
 
   // Filter by status; default shows only in-progress
   const filteredRecords = useMemo(() => {
@@ -47,6 +50,29 @@ export default function SummaryCaseScreen({ onNavigate }: SummaryCaseScreenProps
   const handleSelectInstance = (instance: CaseInstanceRecord) => {
     selectCaseInstance(instance);
     if (onNavigate) onNavigate('summary');
+  };
+
+  const handleCloseCase = async (instance: CaseInstanceRecord) => {
+    const instanceId = String(instance.instanceId ?? '');
+    if (!instanceId) return;
+    const confirmed = window.confirm(`Close case ${instance.instanceDisplayName || instance.caseTitle || instanceId}?`);
+    if (!confirmed) return;
+    setClosingCaseId(instanceId);
+    try {
+      await closeCaseInstance(instanceId, 'Closed by user from FNOD Case Selector');
+      toast({
+        title: 'Case Closed',
+        description: `Case ${instance.instanceDisplayName || instance.caseTitle || instanceId} was closed.`,
+      });
+    } catch (error: any) {
+      toast({
+        title: 'Close Failed',
+        description: error?.message || 'Unable to close case.',
+        variant: 'destructive',
+      });
+    } finally {
+      setClosingCaseId(null);
+    }
   };
 
   /** Shorten case ID for display */
@@ -139,8 +165,17 @@ export default function SummaryCaseScreen({ onNavigate }: SummaryCaseScreenProps
                         </div>
                       </div>
                     </div>
-                    <div>
+                    <div className="flex items-center gap-2">
                       <Button size="sm" onClick={() => handleSelectInstance(inst)}>{isSelected ? 'Selected' : 'Select'}</Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => { void handleCloseCase(inst); }}
+                        disabled={closingCaseId === String(id)}
+                        className="text-red-600 border-red-300 hover:bg-red-50 hover:text-red-700"
+                      >
+                        {closingCaseId === String(id) ? 'Closing...' : 'Close Case'}
+                      </Button>
                     </div>
                   </div>
                 </div>

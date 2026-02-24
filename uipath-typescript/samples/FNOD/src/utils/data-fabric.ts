@@ -105,3 +105,60 @@ export function getDfFieldString(
   const val = getDfField(record, field);
   return val !== undefined ? String(val) : fallback;
 }
+
+type UiPathLike = {
+  getToken?: () => string | undefined;
+  config?: { baseUrl?: string; orgName?: string; tenantName?: string };
+};
+
+/**
+ * Update exactly one Data Fabric record using the single-record endpoint path:
+ * POST .../datafabric_/api/EntityService/entity/{entityId}/update/{recordId}
+ */
+export async function updateSingleDfRecord(
+  sdk: UiPathLike,
+  entityId: string,
+  recordId: string,
+  payload: Record<string, unknown>
+): Promise<unknown> {
+  const token = sdk?.getToken?.();
+  if (!token) throw new Error('No auth token available for Data Fabric update.');
+
+  const envBaseUrl = import.meta.env.VITE_UIPATH_BASE_URL as string | undefined;
+  const envOrg = import.meta.env.VITE_UIPATH_ORG_NAME as string | undefined;
+  const envTenant = import.meta.env.VITE_UIPATH_TENANT_NAME as string | undefined;
+
+  const baseUrl = (envBaseUrl || sdk?.config?.baseUrl || '').replace(/\/+$/, '');
+  const orgName = envOrg || sdk?.config?.orgName || '';
+  const tenantName = envTenant || sdk?.config?.tenantName || '';
+
+  if (!baseUrl || !orgName || !tenantName) {
+    throw new Error('Missing baseUrl/orgName/tenantName for Data Fabric single-record update.');
+  }
+
+  const url =
+    `${baseUrl}/${encodeURIComponent(orgName)}/${encodeURIComponent(tenantName)}` +
+    `/datafabric_/api/EntityService/entity/${encodeURIComponent(entityId)}/update/${encodeURIComponent(recordId)}`;
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      Accept: 'application/json, text/plain, */*',
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(payload),
+    credentials: 'include',
+  });
+
+  if (!response.ok) {
+    const text = await response.text().catch(() => '');
+    throw new Error(`DF single-record update failed (${response.status}): ${text || response.statusText}`);
+  }
+
+  try {
+    return await response.json();
+  } catch {
+    return null;
+  }
+}
